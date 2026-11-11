@@ -62,3 +62,31 @@ export class InternalServerError extends AppError {
     super(message, 500, 'INTERNAL_SERVER_ERROR', details);
   }
 }
+
+// ============================================================================
+// Search Domain Errors
+// ============================================================================
+
+export class SearchProviderError extends AppError {
+  constructor(message = 'Web search provider failed', details?: unknown) {
+    super(message, 502, 'SEARCH_PROVIDER_ERROR', details);
+  }
+}
+
+export class SearchTimeoutError extends AppError {
+  constructor(message = 'Web search request timed out', details?: unknown) {
+    super(message, 504, 'SEARCH_TIMEOUT', details);
+  }
+}
+
+export class SearchRateLimitError extends AppError {
+  constructor(message = 'Web search provider rate limit exceeded', details?: unknown) {
+    super(message, 429, 'SEARCH_RATE_LIMITED', details);
+  }
+}
+
+export class SearchAuthenticationError extends AppError {
+  constructor(message = 'Web search provider authentication failed', details?: unknown) {
+    super(message, 502, 'SEARCH_AUTH_ERROR', details);
+  }
+}
