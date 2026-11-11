@@ -16,6 +16,8 @@ describe('Environment Configuration Validation', () => {
     expect(parsed.LOG_LEVEL).toBe('info');
     expect(parsed.API_PREFIX).toBe('/api');
     expect(parsed.REQUEST_BODY_LIMIT).toBe('1mb');
+    expect(parsed.SEARCH_PROVIDER).toBe('tavily');
+    expect(parsed.SEARCH_TIMEOUT_MS).toBe(5000);
   });
 
   it('should throw EnvValidationError when PORT is out of valid range', () => {
@@ -37,6 +39,22 @@ describe('Environment Configuration Validation', () => {
   it('should throw EnvValidationError when API_PREFIX does not start with a slash', () => {
     const rawEnv = {
       API_PREFIX: 'api/v1', // Missing leading slash
+    };
+
+    expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
+  });
+
+  it('should throw EnvValidationError when SEARCH_PROVIDER is unsupported', () => {
+    const rawEnv = {
+      SEARCH_PROVIDER: 'unsupported_engine',
+    };
+
+    expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
+  });
+
+  it('should throw EnvValidationError when SEARCH_TIMEOUT_MS is less than minimum allowed', () => {
+    const rawEnv = {
+      SEARCH_TIMEOUT_MS: '100', // Minimum is 500ms
     };
 
     expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);

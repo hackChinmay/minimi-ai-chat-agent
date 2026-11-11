@@ -11,6 +11,11 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   API_PREFIX: z.string().startsWith('/').default('/api'),
   REQUEST_BODY_LIMIT: z.string().default('1mb'),
+
+  // Search Provider Configurations
+  SEARCH_PROVIDER: z.enum(['tavily', 'brave', 'mock']).default('tavily'),
+  TAVILY_API_KEY: z.string().optional(),
+  SEARCH_TIMEOUT_MS: z.coerce.number().int().min(500).max(30000).default(5000),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
