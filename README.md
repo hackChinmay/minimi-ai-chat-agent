@@ -13,6 +13,7 @@ An intelligent conversational AI agent engineered with persistent memory, real-t
 - **Phase 2: Production Backend Foundation**: Completed (Express.js, TypeScript strict mode, Zod, centralized error handling, security headers, correlation IDs).
 - **Phase 3: Production Web Search Integration**: Completed ([docs/SEARCH_INTEGRATION.md](docs/SEARCH_INTEGRATION.md) — Tavily provider, Mock provider, `SearchProvider` interface, result normalization, stable citation identifiers, exponential backoff retries, and `POST /api/search`).
 - **Phase 4: Conversation Memory Architecture**: Completed ([docs/CONVERSATION_MEMORY.md](docs/CONVERSATION_MEMORY.md) — Pluggable storage abstraction, In-Memory and MongoDB adapters, sliding context window manager with system prompt preservation, and `/api/conversations` endpoints).
+- **Phase 5: LLM Integration and Agent Orchestration**: Completed ([docs/LLM_INTEGRATION.md](docs/LLM_INTEGRATION.md) — Modular LLM provider, OpenAI & Mock providers, Search Decision Engine, Query Rewriting with temporal normalization, Dynamic System Temporal Grounding, Anti-Prompt-Injection defense, Verified Source Attribution, and `POST /api/conversations/:id/chat`).
 
 ---
 
@@ -67,6 +68,13 @@ cp .env.example .env
 | `MONGODB_URI` | `string` | *(empty)* | MongoDB connection string (required if `STORAGE_PROVIDER=mongodb`). |
 | `MAX_CONTEXT_MESSAGES` | `number` | `20` | Default maximum messages in sliding context window. |
 | `MAX_MESSAGE_LENGTH` | `number` | `32000` | Maximum character length for individual conversation messages. |
+| `LLM_PROVIDER` | `string` | `openai` | Active LLM provider (`openai`, `mock`). |
+| `OPENAI_API_KEY` | `string` | *(empty)* | API key for OpenAI (required if `LLM_PROVIDER=openai`). |
+| `OPENAI_MODEL` | `string` | `gpt-4o-mini` | LLM model identifier. |
+| `OPENAI_BASE_URL` | `string` | `https://api.openai.com/v1` | Base URL for OpenAI/Groq/OpenRouter compatible endpoints. |
+| `LLM_TIMEOUT_MS` | `number` | `15000` | Timeout in milliseconds for LLM requests. |
+| `LLM_TEMPERATURE` | `number` | `0.2` | Sampling temperature for factual answers. |
+| `LLM_MAX_TOKENS` | `number` | `1000` | Maximum tokens in generated completion. |
 
 > **Security Note:** `.env` is ignored by git (`.gitignore`). Secret keys are validated at boot via Zod and are never exposed in client bundles or public endpoints.
 
@@ -166,6 +174,14 @@ curl "http://localhost:3000/api/conversations/<CONVERSATION_ID>/messages?maxMess
 curl "http://localhost:3000/api/conversations?page=1&limit=10"
 ```
 
+#### Conversational Agent Chat (`POST /api/conversations/:id/chat`)
+Execute an end-to-end conversational turn with intelligent web search, temporal grounding, and source citations:
+```bash
+curl -X POST http://localhost:3000/api/conversations/<CONVERSATION_ID>/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is the starting price of the Tesla Model 3 in 2026?"}'
+```
+
 #### Delete Conversation (`DELETE /api/conversations/:id`)
 ```bash
 curl -X DELETE http://localhost:3000/api/conversations/<CONVERSATION_ID>
@@ -208,6 +224,11 @@ npm run test:coverage
 - **Tavily Provider Reliability**: AbortController timeouts, malformed payload detection, 429 rate limit backoff retries, 5xx server error retries, and non-retryable 400/401/403 bails.
 - **Conversation Memory & Management**: Conversation creation, listing, retrieval, deletion, strict UUID parameter checks, isolation between conversations.
 - **Sliding Context Window**: Window sizing (`maxMessages`), character budgeting (`maxCharacters`), system prompt preservation, chronological ordering, truncation flag.
+- **LLM Integration & Agent Orchestration**: Deterministic mock provider, OpenAI client with backoff retries, dynamic temporal grounding, XML snippet sanitization and anti-injection defense.
+- **Search Decision Engine**: Intelligent evaluation skipping search for chitchat/code/recall while triggering search for prices, versions, dates, and comparisons.
+- **Contextual Query Rewriting**: Pronoun resolution across turns and relative date normalization.
+- **Source Attribution & Citations**: Verification against search results and hallucination stripping.
+- **Fault Tolerance & Duplicate Guards**: Graceful search failure degradation, empty search result handling, in-flight conversation locks, and duplicate-request protection (409 Conflict).
 - **Request Validation**: Body, query parameter, and path parameter constraints using Zod schemas.
 - **Centralized Error Handling**: Operational error codes, custom `AppError` subclasses, JSON parse error recovery, and 500 error sanitization.
 - **Configuration Validation**: Zod environment parsing and boundary verification.
@@ -229,6 +250,7 @@ minimi-ai-chat-agent/
 │   ├── ARCHITECTURE.md       # High-level architecture, memory model, security
 │   ├── CONVERSATION_MEMORY.md# Memory subsystem, sliding window & storage adapter design
 │   ├── IMPLEMENTATION_PLAN.md# Phased delivery roadmap and testing strategy
+│   ├── LLM_INTEGRATION.md    # LLM provider, prompt engineering & agent orchestration guide
 │   ├── SEARCH_INTEGRATION.md # Web search subsystem design & provider guide
 │   └── TECHNICAL_DECISIONS.md# Tech stack evaluation, rationale, rejected options
 │
@@ -240,7 +262,7 @@ minimi-ai-chat-agent/
 │   │   └── env.ts            # Type-safe environment validation via Zod
 │   │
 │   ├── controllers/
-│   │   ├── conversationController.ts # HTTP handlers for /api/conversations
+│   │   ├── conversationController.ts # HTTP handlers for /api/conversations (CRUD & Chat)
 │   │   ├── healthController.ts # HTTP handler for GET /api/health
 │   │   └── searchController.ts # HTTP handler for POST /api/search
 │   │
@@ -252,13 +274,27 @@ minimi-ai-chat-agent/
 │   │   └── validate.ts       # Zod schema validation middleware (body, query, params)
 │   │
 │   ├── routes/
-│   │   ├── conversationRoute.ts # Conversation & message route definitions
+│   │   ├── conversationRoute.ts # Conversation, message & chat route definitions
 │   │   ├── healthRoute.ts    # Health check route definition
 │   │   ├── searchRoute.ts    # Search route definition & input schema
 │   │   └── index.ts          # Root API router aggregator
 │   │
 │   ├── services/
+│   │   ├── agent/            # [Phase 5] Agent Orchestration Layer
+│   │   │   ├── types.ts      # Agent contracts, SearchDecision, AgentChatResult
+│   │   │   ├── agentOrchestrator.ts # Core state machine coordinating memory, search & LLM
+│   │   │   ├── searchDecisionEngine.ts # Rules & heuristics deciding search necessity
+│   │   │   ├── queryRewriter.ts # Contextual pronoun resolution & temporal normalization
+│   │   │   ├── citationManager.ts # Source attribution & citation validation
+│   │   │   └── prompts/
+│   │   │       └── systemPrompt.ts # Centralized prompt with temporal grounding & anti-injection
 │   │   ├── healthService.ts  # Business logic for system health and uptime
+│   │   ├── llm/              # [Phase 5] Modular LLM Provider Subsystem
+│   │   │   ├── types.ts      # LLMProvider interface, options, and response contracts
+│   │   │   ├── llmProviderFactory.ts # Pluggable factory (OpenAI / Mock)
+│   │   │   └── providers/
+│   │   │       ├── mockLLMProvider.ts # Deterministic mock provider for offline tests
+│   │   │       └── openAILLMProvider.ts # Native fetch OpenAI client with backoff retries
 │   │   ├── memory/           # Conversation Memory Subsystem
 │   │   │   ├── types.ts      # Storage adapter interface & domain contracts
 │   │   │   ├── contextManager.ts # Sliding window, budgeting & prompt anchoring
@@ -280,13 +316,14 @@ minimi-ai-chat-agent/
 │   │
 │   └── utils/
 │       ├── asyncHandler.ts   # Promise resolution wrapper for Express route handlers
-│       ├── errors.ts         # Custom AppError hierarchy (SearchTimeout, RateLimit, etc.)
+│       ├── errors.ts         # Custom AppError hierarchy (SearchTimeout, LLMTimeout, etc.)
 │       └── logger.ts         # Structured, level-aware application logger
 │
 └── tests/
     ├── config.test.ts        # Environment variable parsing and validation tests
     ├── errorHandler.test.ts  # Centralized error middleware and payload tests
     ├── health.test.ts        # Health check endpoint integration tests
+    ├── llm.test.ts           # [Phase 5] Comprehensive agent orchestration & LLM tests
     ├── memory.test.ts        # Conversation memory lifecycle, sliding window & adapter tests
     ├── notFound.test.ts      # 404 handling integration tests
     ├── search.test.ts        # Search provider unit & POST /api/search integration tests
@@ -297,6 +334,5 @@ minimi-ai-chat-agent/
 
 ## 9. Next Steps (Upcoming Phases)
 
-- **Phase 5**: Agent Core, LLM Integration & Search Tool-Calling Loop.
 - **Phase 6**: Server-Sent Events (SSE) Streaming & Interactive Chat API.
 - **Phase 7**: Evaluation Framework (EV-01 to EV-06) & Final Polish.

@@ -21,6 +21,12 @@ describe('Environment Configuration Validation', () => {
     expect(parsed.STORAGE_PROVIDER).toBe('inmemory');
     expect(parsed.MAX_CONTEXT_MESSAGES).toBe(10);
     expect(parsed.MAX_MESSAGE_LENGTH).toBe(10000);
+    expect(parsed.LLM_PROVIDER).toBe('openai');
+    expect(parsed.OPENAI_MODEL).toBe('gpt-4o-mini');
+    expect(parsed.OPENAI_BASE_URL).toBe('https://api.openai.com/v1');
+    expect(parsed.LLM_TIMEOUT_MS).toBe(15000);
+    expect(parsed.LLM_TEMPERATURE).toBe(0.2);
+    expect(parsed.LLM_MAX_TOKENS).toBe(1000);
   });
 
   it('should throw EnvValidationError when PORT is out of valid range', () => {
@@ -66,6 +72,22 @@ describe('Environment Configuration Validation', () => {
   it('should throw EnvValidationError when STORAGE_PROVIDER is unsupported', () => {
     const rawEnv = {
       STORAGE_PROVIDER: 'unsupported_db',
+    };
+
+    expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
+  });
+
+  it('should throw EnvValidationError when LLM_PROVIDER is unsupported', () => {
+    const rawEnv = {
+      LLM_PROVIDER: 'unsupported_llm',
+    };
+
+    expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
+  });
+
+  it('should throw EnvValidationError when LLM_TIMEOUT_MS is below minimum', () => {
+    const rawEnv = {
+      LLM_TIMEOUT_MS: '500', // Minimum is 1000ms
     };
 
     expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
