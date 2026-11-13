@@ -18,6 +18,9 @@ describe('Environment Configuration Validation', () => {
     expect(parsed.REQUEST_BODY_LIMIT).toBe('1mb');
     expect(parsed.SEARCH_PROVIDER).toBe('tavily');
     expect(parsed.SEARCH_TIMEOUT_MS).toBe(5000);
+    expect(parsed.STORAGE_PROVIDER).toBe('inmemory');
+    expect(parsed.MAX_CONTEXT_MESSAGES).toBe(10);
+    expect(parsed.MAX_MESSAGE_LENGTH).toBe(10000);
   });
 
   it('should throw EnvValidationError when PORT is out of valid range', () => {
@@ -55,6 +58,14 @@ describe('Environment Configuration Validation', () => {
   it('should throw EnvValidationError when SEARCH_TIMEOUT_MS is less than minimum allowed', () => {
     const rawEnv = {
       SEARCH_TIMEOUT_MS: '100', // Minimum is 500ms
+    };
+
+    expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
+  });
+
+  it('should throw EnvValidationError when STORAGE_PROVIDER is unsupported', () => {
+    const rawEnv = {
+      STORAGE_PROVIDER: 'unsupported_db',
     };
 
     expect(() => validateEnv(rawEnv)).toThrow(EnvValidationError);
