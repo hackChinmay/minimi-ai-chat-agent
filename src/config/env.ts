@@ -16,6 +16,12 @@ export const envSchema = z.object({
   SEARCH_PROVIDER: z.enum(['tavily', 'brave', 'mock']).default('tavily'),
   TAVILY_API_KEY: z.string().optional(),
   SEARCH_TIMEOUT_MS: z.coerce.number().int().min(500).max(30000).default(5000),
+
+  // Conversation Memory & Storage Configurations
+  STORAGE_PROVIDER: z.enum(['inmemory', 'mongodb']).default('inmemory'),
+  MONGODB_URI: z.string().optional(),
+  MAX_CONTEXT_MESSAGES: z.coerce.number().int().min(1).max(100).default(10),
+  MAX_MESSAGE_LENGTH: z.coerce.number().int().min(1).max(50000).default(10000),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

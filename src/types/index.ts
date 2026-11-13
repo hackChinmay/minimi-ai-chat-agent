@@ -53,6 +53,49 @@ export interface SearchOptions {
   timeoutMs?: number;
 }
 
+// ============================================================================
+// Conversation Memory Domain Types
+// ============================================================================
+
+export type MessageRole = 'user' | 'assistant' | 'system';
+
+export interface MessageMetadata {
+  citations?: Array<{ id: string; url: string; title: string }>;
+  searchQueries?: string[];
+  [key: string]: unknown;
+}
+
+export interface ConversationMessage {
+  id: string;               // UUID v4
+  conversationId: string;   // UUID v4
+  role: MessageRole;
+  content: string;
+  createdAt: string;        // ISO-8601
+  metadata?: MessageMetadata;
+}
+
+export interface Conversation {
+  id: string;               // UUID v4
+  title: string;
+  createdAt: string;        // ISO-8601
+  updatedAt: string;        // ISO-8601
+  messageCount: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ContextWindowOptions {
+  maxMessages?: number;     // Max messages in sliding window (default: 10)
+  maxCharacters?: number;   // Character budget constraint
+}
+
+export interface ConversationContext {
+  conversationId: string;
+  messages: ConversationMessage[];
+  totalStoredMessages: number;
+  windowSize: number;
+  hasTruncatedHistory: boolean;
+}
+
 declare global {
   namespace Express {
     interface Request {
