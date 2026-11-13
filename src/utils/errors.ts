@@ -90,3 +90,31 @@ export class SearchAuthenticationError extends AppError {
     super(message, 502, 'SEARCH_AUTH_ERROR', details);
   }
 }
+
+// ============================================================================
+// LLM Domain Errors
+// ============================================================================
+
+export class LLMProviderError extends AppError {
+  constructor(message = 'LLM provider failed', details?: unknown) {
+    super(message, 502, 'LLM_PROVIDER_ERROR', details);
+  }
+}
+
+export class LLMTimeoutError extends AppError {
+  constructor(message = 'LLM request timed out', details?: unknown) {
+    super(message, 504, 'LLM_TIMEOUT', details);
+  }
+}
+
+export class LLMRateLimitError extends AppError {
+  constructor(message = 'LLM provider rate limit exceeded', details?: unknown) {
+    super(message, 429, 'LLM_RATE_LIMITED', details);
+  }
+}
+
+export class LLMAuthenticationError extends AppError {
+  constructor(message = 'LLM provider authentication failed', details?: unknown) {
+    super(message, 502, 'LLM_AUTH_ERROR', details);
+  }
+}

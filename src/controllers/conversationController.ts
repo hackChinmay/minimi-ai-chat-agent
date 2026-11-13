@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import { conversationService, ConversationService } from '../services/memory/conversationService';
-import { ApiResponse, Conversation, ConversationMessage, ConversationContext } from '../types';
+import { agentOrchestrator, AgentOrchestrator } from '../services/agent/agentOrchestrator';
+import { ApiResponse, Conversation, ConversationMessage, ConversationContext, AgentChatResult } from '../types';
 
 export class ConversationController {
   private readonly service: ConversationService;
+  private readonly orchestrator: AgentOrchestrator;
 
-  constructor(service?: ConversationService) {
+  constructor(service?: ConversationService, orchestrator?: AgentOrchestrator) {
     this.service = service ?? conversationService;
+    this.orchestrator = orchestrator ?? agentOrchestrator;
   }
 
   public createConversation = async (req: Request, res: Response): Promise<void> => {
@@ -125,6 +128,23 @@ export class ConversationController {
         messages,
         totalMessages: conversation.messageCount,
       },
+    };
+
+    res.status(200).json(response);
+  };
+
+  public chat = async (req: Request, res: Response): Promise<void> => {
+    const { conversationId } = req.params as { conversationId: string };
+    const { message } = req.body as { message: string };
+
+    const result = await this.orchestrator.processUserMessage({
+      conversationId,
+      message,
+    });
+
+    const response: ApiResponse<AgentChatResult> = {
+      success: true,
+      data: result,
     };
 
     res.status(200).json(response);

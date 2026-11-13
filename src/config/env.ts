@@ -22,6 +22,15 @@ export const envSchema = z.object({
   MONGODB_URI: z.string().optional(),
   MAX_CONTEXT_MESSAGES: z.coerce.number().int().min(1).max(100).default(10),
   MAX_MESSAGE_LENGTH: z.coerce.number().int().min(1).max(50000).default(10000),
+
+  // LLM Provider Configurations
+  LLM_PROVIDER: z.enum(['openai', 'mock']).default('openai'),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(15000),
+  LLM_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.2),
+  LLM_MAX_TOKENS: z.coerce.number().int().min(50).max(4000).default(1000),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

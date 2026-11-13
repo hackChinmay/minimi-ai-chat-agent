@@ -96,6 +96,49 @@ export interface ConversationContext {
   hasTruncatedHistory: boolean;
 }
 
+// ============================================================================
+// Agent Orchestration & LLM Domain Types
+// ============================================================================
+
+export type IntentCategory =
+  | 'CHITCHAT'
+  | 'STATIC_KNOWLEDGE'
+  | 'CONVERSATION_RECALL'
+  | 'REALTIME_SEARCH'
+  | 'TEMPORAL_COMPARISON'
+  | 'HISTORICAL_DATED';
+
+export interface SearchDecision {
+  shouldSearch: boolean;
+  category: IntentCategory;
+  reason: string;
+  searchQuery?: string;
+}
+
+export interface AgentChatInput {
+  conversationId: string;
+  message: string;
+}
+
+export type SearchStatus = 'not_needed' | 'attempted' | 'success' | 'failed';
+
+export interface AgentChatResult {
+  conversationId: string;
+  message: string;
+  role: 'assistant';
+  sources: SearchResultItem[];
+  searchUsed: boolean;
+  searchStatus?: SearchStatus;
+  searchQueries: string[];
+  metadata: {
+    category: IntentCategory;
+    latencyMs: number;
+    tokens?: number;
+    searchTimeMs?: number;
+    searchError?: string;
+  };
+}
+
 declare global {
   namespace Express {
     interface Request {

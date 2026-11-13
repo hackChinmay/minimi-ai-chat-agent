@@ -42,6 +42,14 @@ const getMessagesQuerySchema = z.object({
   maxCharacters: z.coerce.number().int().min(1).optional(),
 });
 
+const chatBodySchema = z.object({
+  message: z
+    .string({ required_error: 'Message is required' })
+    .trim()
+    .min(1, 'Message cannot be empty')
+    .max(env.MAX_MESSAGE_LENGTH, `Message cannot exceed ${env.MAX_MESSAGE_LENGTH} characters`),
+});
+
 // Route Bindings
 router.post(
   '/',
@@ -83,6 +91,15 @@ router.get(
     query: getMessagesQuerySchema,
   }),
   asyncHandler(conversationController.getMessages)
+);
+
+router.post(
+  '/:conversationId/chat',
+  validateRequest({
+    params: conversationIdParamSchema,
+    body: chatBodySchema,
+  }),
+  asyncHandler(conversationController.chat)
 );
 
 export const conversationRouter = router;
