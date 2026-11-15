@@ -15,6 +15,7 @@ An intelligent conversational AI agent engineered with persistent memory, real-t
 - **Phase 4: Conversation Memory Architecture**: Completed ([docs/CONVERSATION_MEMORY.md](docs/CONVERSATION_MEMORY.md) — Pluggable storage abstraction, In-Memory and MongoDB adapters, sliding context window manager with system prompt preservation, and `/api/conversations` endpoints).
 - **Phase 5: LLM Integration and Agent Orchestration**: Completed ([docs/LLM_INTEGRATION.md](docs/LLM_INTEGRATION.md) — Modular LLM provider, OpenAI & Mock providers, Search Decision Engine, Query Rewriting with temporal normalization, Dynamic System Temporal Grounding, Anti-Prompt-Injection defense, Verified Source Attribution, and `POST /api/conversations/:id/chat`).
 - **Phase 6: Historical Information Retrieval & Intelligent Comparison**: Completed ([docs/HISTORICAL_COMPARISON.md](docs/HISTORICAL_COMPARISON.md) — TemporalResolver with calendar boundary checks, SnapshotStore with in-memory and MongoDB adapters, 5-minute sliding deduplication, contextual historical retrieval & turn mining, FactExtractor, ComparisonService with CONFIRMED_CHANGE/NO_DETECTED_CHANGE/UNABLE_TO_VERIFY verdicts, and `GET /api/conversations/:id/history` & `POST /api/conversations/:id/compare`).
+- **Phase 7: Frontend Development — Complete Conversational Chat Interface**: Completed (`client/` — Modern React 18, TypeScript strict mode, Vite, Tailwind CSS, Lucide React, responsive 3-panel chat interface, conversation lifecycle CRUD, verified search citations, historical comparison cards, markdown code syntax highlighting with 1-click clipboard copy, and comprehensive Vitest test suite).
 
 ---
 
@@ -250,6 +251,118 @@ npm run test:coverage
 
 ---
 
+## 7. Frontend Interface (Phase 7)
+
+A complete, modern, production-ready conversational chat interface is located in `client/`, powered by React 18, Vite, TypeScript strict mode, Tailwind CSS, and Lucide React.
+
+### Frontend Features
+
+1. **Responsive 3-Panel Layout**:
+   - Collapsible desktop sidebar with mobile drawer navigation overlay.
+   - Main conversational scroll view with smooth auto-scroll to latest replies.
+   - Multiline auto-expanding textarea input with `Enter` (send) and `Shift + Enter` (newline) support.
+
+2. **Conversation Lifecycle Management**:
+   - Create, list, select, and delete conversations connected directly to backend memory.
+   - Interactive date grouping (`Today`, `Yesterday`, `Previous 7 Days`, `Older`).
+   - Real-time client-side search filtering across conversation titles.
+   - Two-step deletion confirmation to prevent accidental message loss.
+
+3. **Verified Source Citations**:
+   - Expandable source citation panels and domain badge pills for verified web search results.
+   - Security-hardened external links (`target="_blank"` with `rel="noopener noreferrer"` and protocol validation).
+   - Domain extractors, source snippet excerpts, and index markers matching in-text references.
+
+4. **Historical Comparison Cards (Phase 6 Integration)**:
+   - Visual comparison cards rendering `CONFIRMED_CHANGE`, `NO_DETECTED_CHANGE`, and `UNABLE_TO_VERIFY` verdicts.
+   - Two-column baseline vs current comparison cards showing observed values, dates, and source links.
+   - Automated delta metrics badges with numeric difference (`Δ +1.7`) and percentage change (`+1.9%`).
+   - Plain-English comparative analysis and citation attribution.
+
+5. **Safe Markdown & Code Highlighting**:
+   - Fenced code block renderer with language banners and 1-click clipboard copy (`Copied!` tooltip).
+   - Headings, lists, bold/italics, blockquotes, tables, and inline citation token rendering (`[1]`, `[source-1]`).
+
+6. **Interactive Welcome Screen**:
+   - Capability-aware suggestion prompt cards for current pricing, historical comparisons, version updates, and factual queries.
+
+7. **System Health & Connectivity**:
+   - Automated periodic health checks against `/api/health` displaying active agent connection status.
+
+### Frontend Directory Structure
+
+```text
+client/
+├── index.html                # Single-page application entry template
+├── package.json              # React 18, Vite, Tailwind CSS & Vitest dependencies
+├── tsconfig.json             # Strict TypeScript configuration
+├── vite.config.ts            # Vite bundler, proxy (/api -> :3000), and test setup
+├── tailwind.config.js        # Theme palette and styling tokens
+├── vercel.json               # SPA routing rewrite configuration for Vercel
+├── .env.example              # VITE_API_BASE_URL configuration template
+│
+├── src/
+│   ├── main.tsx              # React DOM entry with StrictMode
+│   ├── App.tsx               # Root application coordinator
+│   ├── index.css             # Tailwind base and utility classes
+│   ├── vite-env.d.ts         # Vite client type references
+│   │
+│   ├── components/
+│   │   ├── chat/             # MessageBubble, MessageList, SourceCitations, ComparisonCard, MarkdownContent, LoadingIndicator, WelcomeScreen
+│   │   ├── input/            # ChatInput with auto-resizing textarea
+│   │   ├── sidebar/          # Sidebar, ConversationItem
+│   │   └── layout/           # AppLayout, Header
+│   │
+│   ├── hooks/                # useChat, useConversations
+│   ├── services/             # apiClient, conversationService, historicalService
+│   ├── types/                # Complete TypeScript domain contracts (matching backend schemas)
+│   └── utils/                # Date grouping, formatters, URL sanitization
+│
+└── tests/                    # Frontend Vitest & React Testing Library test suites
+    ├── setup.ts              # jsdom polyfills & mocks
+    ├── chat.test.tsx         # Message rendering, citations, markdown, and loading tests
+    ├── comparison.test.tsx   # Phase 6 ComparisonCard verdicts & metrics tests
+    └── sidebar.test.tsx      # Conversation list, search, delete, and input tests
+```
+
+### Running the Frontend
+
+#### Development Mode
+```bash
+# Start backend (in root directory)
+npm run dev
+
+# Start frontend (in a separate terminal)
+npm run client:dev
+# or: cd client && npm run dev
+```
+The client will be accessible at `http://localhost:5173` with all `/api` calls automatically proxied to the backend at `http://localhost:3000`.
+
+#### Running Tests
+```bash
+# Run client unit & component tests
+npm run client:test
+```
+
+#### Production Build
+```bash
+# Build production bundle to client/dist
+npm run client:build
+```
+
+#### Deployment (Vercel)
+The client includes `client/vercel.json` configured with SPA rewrites:
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+Set `VITE_API_BASE_URL` in your Vercel deployment settings pointing to your deployed backend API URL.
+
+---
+
 ## 8. Backend Architecture & Module Overview
 
 ```text
@@ -358,5 +471,4 @@ minimi-ai-chat-agent/
 
 ## 9. Next Steps (Upcoming Phases)
 
-- **Phase 7**: Server-Sent Events (SSE) Streaming & Interactive Chat API.
-- **Phase 8**: Evaluation Framework (EV-01 to EV-06) & Final Polish.
+- **Phase 8**: Evaluation Framework (EV-01 to EV-06), Performance Benchmarks, and Final System Polish.
