@@ -72,7 +72,7 @@ export interface SnapshotStorageAdapter {
   readonly name: string;
   saveSnapshot(snapshot: HistoricalSnapshot): Promise<HistoricalSnapshot>;
   getSnapshots(
-    conversationId: string,
+    conversationId?: string,
     options?: HistoricalQueryOptions
   ): Promise<HistoricalSnapshot[]>;
   findLatestSnapshot(

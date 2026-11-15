@@ -18,6 +18,10 @@ import { CitationManager } from '../src/services/agent/citationManager';
 import { HistoricalSnapshot } from '../src/types';
 
 describe('Phase 6: Historical Information & Intelligent Comparison', () => {
+  beforeEach(() => {
+    process.env.SEARCH_PROVIDER = 'mock';
+  });
+
   // ==========================================================================
   // 1. TemporalResolver Tests
   // ==========================================================================
@@ -688,6 +692,71 @@ describe('Phase 6: Historical Information & Intelligent Comparison', () => {
         .post(`/api/conversations/${convId}/compare`)
         .send({
           attribute: 'price',
+        });
+
+      expect(compareRes.status).toBe(400);
+      expect(compareRes.body.success).toBe(false);
+      expect(compareRes.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    // Dedicated /api/historical Routes
+    it('POST /api/historical/search should return 200 with temporal resolution and evidence', async () => {
+      const searchRes = await request(app)
+        .post('/api/historical/search')
+        .send({
+          query: 'Who was the UK Prime Minister',
+          date: '2022',
+          maxResults: 3,
+        });
+
+      expect(searchRes.status).toBe(200);
+      expect(searchRes.body.success).toBe(true);
+      expect(searchRes.body.data).toHaveProperty('temporalInfo');
+      expect(searchRes.body.data.temporalInfo.extractedYear).toBe(2022);
+      expect(Array.isArray(searchRes.body.data.results)).toBe(true);
+    });
+
+    it('POST /api/historical/search should return 400 when query is missing', async () => {
+      const searchRes = await request(app)
+        .post('/api/historical/search')
+        .send({
+          date: '2022',
+        });
+
+      expect(searchRes.status).toBe(400);
+      expect(searchRes.body.success).toBe(false);
+      expect(searchRes.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('GET /api/historical/snapshots should return 200 with array of snapshots', async () => {
+      const snapsRes = await request(app).get('/api/historical/snapshots');
+      expect(snapsRes.status).toBe(200);
+      expect(snapsRes.body.success).toBe(true);
+      expect(Array.isArray(snapsRes.body.data)).toBe(true);
+    });
+
+    it('POST /api/historical/compare should return 200 without requiring prior conversationId', async () => {
+      const compareRes = await request(app)
+        .post('/api/historical/compare')
+        .send({
+          subject: 'Node.js',
+          attribute: 'version',
+          baselineDate: '2023',
+          targetDate: '2026',
+        });
+
+      expect(compareRes.status).toBe(200);
+      expect(compareRes.body.success).toBe(true);
+      expect(compareRes.body.data).toHaveProperty('verdict');
+      expect(compareRes.body.data).toHaveProperty('historical');
+      expect(compareRes.body.data).toHaveProperty('current');
+    });
+
+    it('POST /api/historical/compare should return 400 when subject is missing', async () => {
+      const compareRes = await request(app)
+        .post('/api/historical/compare')
+        .send({
+          baselineDate: '2023',
         });
 
       expect(compareRes.status).toBe(400);

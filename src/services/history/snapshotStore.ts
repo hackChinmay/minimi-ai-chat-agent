@@ -37,10 +37,17 @@ export class InMemorySnapshotStorage implements SnapshotStorageAdapter {
   }
 
   public async getSnapshots(
-    conversationId: string,
+    conversationId?: string,
     options?: HistoricalQueryOptions
   ): Promise<HistoricalSnapshot[]> {
-    const list = this.snapshots.get(conversationId) ?? [];
+    let list: HistoricalSnapshot[] = [];
+    if (conversationId) {
+      list = this.snapshots.get(conversationId) ?? [];
+    } else {
+      for (const snaps of this.snapshots.values()) {
+        list.push(...snaps);
+      }
+    }
     let filtered = [...list];
 
     if (options?.entity) {
@@ -205,10 +212,13 @@ export class MongoSnapshotStorage implements SnapshotStorageAdapter {
   }
 
   public async getSnapshots(
-    conversationId: string,
+    conversationId?: string,
     options?: HistoricalQueryOptions
   ): Promise<HistoricalSnapshot[]> {
-    const query: any = { conversationId };
+    const query: any = {};
+    if (conversationId) {
+      query.conversationId = conversationId;
+    }
 
     if (options?.entity) {
       query.entity = new RegExp(options.entity, 'i');
