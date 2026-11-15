@@ -139,6 +139,71 @@ export interface AgentChatResult {
   };
 }
 
+// ============================================================================
+// Phase 6: Historical Information & Intelligent Comparison Types
+// ============================================================================
+
+export interface HistoricalSnapshot {
+  id: string;
+  conversationId: string;
+  messageId?: string;
+  entity: string;
+  attribute: string;
+  value: string;
+  validPeriod?: string;
+  observedAt: string;
+  retrievedAt: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface HistoricalQueryOptions {
+  entity?: string;
+  query?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+}
+
+export type ComparisonVerdict =
+  | 'CONFIRMED_CHANGE'
+  | 'NO_DETECTED_CHANGE'
+  | 'UNABLE_TO_VERIFY';
+
+export interface ComparisonObservation {
+  value: string;
+  period?: string;
+  timestamp: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+}
+
+export interface ComparisonResult {
+  conversationId: string;
+  entity: string;
+  attribute: string;
+  verdict: ComparisonVerdict;
+  historical: ComparisonObservation;
+  current: ComparisonObservation;
+  deltaSummary: string;
+  explanation: string;
+  sources: SearchResultItem[];
+  metadata: {
+    comparisonTimeMs: number;
+    searchUsed: boolean;
+    confidence: 'high' | 'medium' | 'low';
+    searchError?: string;
+  };
+}
+
+export interface ComparisonRequest {
+  subject: string;
+  attribute?: string;
+  baselineDate?: string;
+  targetDate?: string;
+}
+
 declare global {
   namespace Express {
     interface Request {

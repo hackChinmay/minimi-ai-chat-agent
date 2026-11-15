@@ -5,7 +5,9 @@ import { createLLMProvider } from '../llm/llmProviderFactory';
 import { SearchDecisionEngine, searchDecisionEngine as defaultDecisionEngine } from './searchDecisionEngine';
 import { QueryRewriter, queryRewriter as defaultQueryRewriter } from './queryRewriter';
 import { CitationManager, citationManager as defaultCitationManager } from './citationManager';
-import { buildSystemPrompt } from './prompts/systemPrompt';
+import { buildSystemPrompt, HistoricalBaselineOption } from './prompts/systemPrompt';
+import { HistoricalRetrievalService, historicalRetrievalService as defaultRetrievalService } from '../history/historicalRetrievalService';
+import { FactExtractor, factExtractor as defaultFactExtractor } from '../history/factExtractor';
 import { AgentChatInput, AgentChatResult, SearchStatus } from './types';
 import { SearchResultItem } from '../../types';
 import { BadRequestError, ConflictError } from '../../utils/errors';
@@ -19,6 +21,8 @@ export interface AgentOrchestratorOptions {
   decisionEngine?: SearchDecisionEngine;
   queryRewriter?: QueryRewriter;
   citationManager?: CitationManager;
+  retrievalService?: HistoricalRetrievalService;
+  factExtractor?: FactExtractor;
 }
 
 export class AgentOrchestrator {
@@ -28,6 +32,8 @@ export class AgentOrchestrator {
   private readonly decisionEngine: SearchDecisionEngine;
   private readonly queryRewriter: QueryRewriter;
   private readonly citationManager: CitationManager;
+  private readonly retrievalService: HistoricalRetrievalService;
+  private readonly factExtractor: FactExtractor;
 
   // In-flight request lock & duplicate protection
   private readonly inFlightConversations = new Set<string>();
@@ -40,6 +46,8 @@ export class AgentOrchestrator {
     this.decisionEngine = options?.decisionEngine ?? defaultDecisionEngine;
     this.queryRewriter = options?.queryRewriter ?? defaultQueryRewriter;
     this.citationManager = options?.citationManager ?? defaultCitationManager;
+    this.retrievalService = options?.retrievalService ?? defaultRetrievalService;
+    this.factExtractor = options?.factExtractor ?? defaultFactExtractor;
   }
 
   /**
@@ -139,10 +147,31 @@ export class AgentOrchestrator {
         }
       }
 
-      // 7. Build Grounded Prompts and History
+      // 7. Historical Context Grounding (if temporal comparison)
+      let historicalBaseline: HistoricalBaselineOption | undefined;
+      if (decision.category === 'TEMPORAL_COMPARISON') {
+        try {
+          const historyResults = await this.retrievalService.retrieveContextualHistory(conversationId, trimmedMessage, { limit: 1 });
+          const snap = historyResults.snapshots[0];
+          if (snap) {
+            historicalBaseline = {
+              entity: snap.entity,
+              attribute: snap.attribute,
+              value: snap.value,
+              observedAt: snap.observedAt,
+              sourceUrl: snap.sourceUrl,
+            };
+          }
+        } catch (err: unknown) {
+          logger.warn(`Failed to retrieve historical baseline for [${conversationId}]: ${err}`);
+        }
+      }
+
+      // 8. Build Grounded Prompts and History
       const systemPromptContent = buildSystemPrompt({
         currentTime: now,
         searchResults: searchUsed ? searchResults : undefined,
+        historicalBaseline,
       });
 
       const llmMessages: LLMChatMessage[] = [
@@ -165,14 +194,14 @@ export class AgentOrchestrator {
         content: trimmedMessage,
       });
 
-      // 8. Invoke LLM Provider
+      // 9. Invoke LLM Provider
       logger.debug(`Invoking LLM [${this.llmProvider.name}] for conversation [${conversationId}]`);
       const llmResponse = await this.llmProvider.chat(llmMessages, {
         temperature: env.LLM_TEMPERATURE,
         maxTokens: env.LLM_MAX_TOKENS,
       });
 
-      // 9. Source Attribution & Citation Validation
+      // 10. Source Attribution & Citation Validation
       const attribution = this.citationManager.extractAndValidate(
         llmResponse.content,
         searchResults
@@ -186,7 +215,7 @@ export class AgentOrchestrator {
           ? searchResults
           : [];
 
-      // 10. Persist Assistant Response in Memory
+      // 11. Persist Assistant Response in Memory
       const assistantMetadata = {
         citations: attribution.citedSources.map((s) => ({
           id: s.id,
@@ -203,13 +232,27 @@ export class AgentOrchestrator {
         latencyMs: totalLatencyMs,
       };
 
-      await this.conversationService.appendMessage(conversationId, {
+      const assistantMsg = await this.conversationService.appendMessage(conversationId, {
         role: 'assistant',
         content: attribution.cleanContent,
         metadata: assistantMetadata,
       });
 
-      // 11. Return Structured Result
+      // 12. Extract facts and record snapshots for future temporal comparison
+      try {
+        await this.factExtractor.extractAndRecord({
+          conversationId,
+          messageId: assistantMsg.id,
+          userQuery: trimmedMessage,
+          assistantResponse: attribution.cleanContent,
+          sources: finalSources,
+          observedAt: now.toISOString(),
+        });
+      } catch (err: unknown) {
+        logger.warn(`Fact extraction failed non-critically for conversation [${conversationId}]: ${err}`);
+      }
+
+      // 13. Return Structured Result
       return {
         conversationId,
         message: attribution.cleanContent,
