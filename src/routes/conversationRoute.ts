@@ -50,6 +50,25 @@ const chatBodySchema = z.object({
     .max(env.MAX_MESSAGE_LENGTH, `Message cannot exceed ${env.MAX_MESSAGE_LENGTH} characters`),
 });
 
+const getHistoryQuerySchema = z.object({
+  entity: z.string().trim().max(100).optional(),
+  query: z.string().trim().max(200).optional(),
+  since: z.string().trim().optional(),
+  until: z.string().trim().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+const compareBodySchema = z.object({
+  subject: z
+    .string({ required_error: 'Subject is required' })
+    .trim()
+    .min(1, 'Subject cannot be empty')
+    .max(200, 'Subject cannot exceed 200 characters'),
+  attribute: z.string().trim().max(100).optional(),
+  baselineDate: z.string().trim().optional(),
+  targetDate: z.string().trim().optional(),
+});
+
 // Route Bindings
 router.post(
   '/',
@@ -100,6 +119,24 @@ router.post(
     body: chatBodySchema,
   }),
   asyncHandler(conversationController.chat)
+);
+
+router.get(
+  '/:conversationId/history',
+  validateRequest({
+    params: conversationIdParamSchema,
+    query: getHistoryQuerySchema,
+  }),
+  asyncHandler(conversationController.getHistory)
+);
+
+router.post(
+  '/:conversationId/compare',
+  validateRequest({
+    params: conversationIdParamSchema,
+    body: compareBodySchema,
+  }),
+  asyncHandler(conversationController.compare)
 );
 
 export const conversationRouter = router;

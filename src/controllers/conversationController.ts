@@ -1,15 +1,26 @@
 import { Request, Response } from 'express';
 import { conversationService, ConversationService } from '../services/memory/conversationService';
 import { agentOrchestrator, AgentOrchestrator } from '../services/agent/agentOrchestrator';
-import { ApiResponse, Conversation, ConversationMessage, ConversationContext, AgentChatResult } from '../types';
+import { historicalRetrievalService as defaultRetrievalService, HistoricalRetrievalService } from '../services/history/historicalRetrievalService';
+import { comparisonService as defaultComparisonService, ComparisonService } from '../services/history/comparisonService';
+import { ApiResponse, Conversation, ConversationMessage, ConversationContext, AgentChatResult, ComparisonResult, HistoricalSnapshot } from '../types';
 
 export class ConversationController {
   private readonly service: ConversationService;
   private readonly orchestrator: AgentOrchestrator;
+  private readonly retrievalService: HistoricalRetrievalService;
+  private readonly comparisonService: ComparisonService;
 
-  constructor(service?: ConversationService, orchestrator?: AgentOrchestrator) {
+  constructor(
+    service?: ConversationService,
+    orchestrator?: AgentOrchestrator,
+    retrievalService?: HistoricalRetrievalService,
+    comparisonService?: ComparisonService
+  ) {
     this.service = service ?? conversationService;
     this.orchestrator = orchestrator ?? agentOrchestrator;
+    this.retrievalService = retrievalService ?? defaultRetrievalService;
+    this.comparisonService = comparisonService ?? defaultComparisonService;
   }
 
   public createConversation = async (req: Request, res: Response): Promise<void> => {
@@ -143,6 +154,60 @@ export class ConversationController {
     });
 
     const response: ApiResponse<AgentChatResult> = {
+      success: true,
+      data: result,
+    };
+
+    res.status(200).json(response);
+  };
+
+  public getHistory = async (req: Request, res: Response): Promise<void> => {
+    const { conversationId } = req.params as { conversationId: string };
+    const entity = typeof req.query.entity === 'string' ? req.query.entity : undefined;
+    const query = typeof req.query.query === 'string' ? req.query.query : undefined;
+    const since = typeof req.query.since === 'string' ? req.query.since : undefined;
+    const until = typeof req.query.until === 'string' ? req.query.until : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+
+    const history = await this.retrievalService.retrieveContextualHistory(conversationId, query, {
+      entity,
+      since,
+      until,
+      limit,
+    });
+
+    const response: ApiResponse<{
+      conversationId: string;
+      snapshots: HistoricalSnapshot[];
+      relevantMessages: unknown[];
+    }> = {
+      success: true,
+      data: {
+        conversationId,
+        snapshots: history.snapshots,
+        relevantMessages: history.relevantMessages,
+      },
+      meta: {
+        totalSnapshots: history.snapshots.length,
+        totalRelevantMessages: history.relevantMessages.length,
+      },
+    };
+
+    res.status(200).json(response);
+  };
+
+  public compare = async (req: Request, res: Response): Promise<void> => {
+    const { conversationId } = req.params as { conversationId: string };
+    const { subject, attribute, baselineDate, targetDate } = req.body;
+
+    const result = await this.comparisonService.compare(conversationId, {
+      subject,
+      attribute,
+      baselineDate,
+      targetDate,
+    });
+
+    const response: ApiResponse<ComparisonResult> = {
       success: true,
       data: result,
     };

@@ -14,6 +14,7 @@ An intelligent conversational AI agent engineered with persistent memory, real-t
 - **Phase 3: Production Web Search Integration**: Completed ([docs/SEARCH_INTEGRATION.md](docs/SEARCH_INTEGRATION.md) — Tavily provider, Mock provider, `SearchProvider` interface, result normalization, stable citation identifiers, exponential backoff retries, and `POST /api/search`).
 - **Phase 4: Conversation Memory Architecture**: Completed ([docs/CONVERSATION_MEMORY.md](docs/CONVERSATION_MEMORY.md) — Pluggable storage abstraction, In-Memory and MongoDB adapters, sliding context window manager with system prompt preservation, and `/api/conversations` endpoints).
 - **Phase 5: LLM Integration and Agent Orchestration**: Completed ([docs/LLM_INTEGRATION.md](docs/LLM_INTEGRATION.md) — Modular LLM provider, OpenAI & Mock providers, Search Decision Engine, Query Rewriting with temporal normalization, Dynamic System Temporal Grounding, Anti-Prompt-Injection defense, Verified Source Attribution, and `POST /api/conversations/:id/chat`).
+- **Phase 6: Historical Information Retrieval & Intelligent Comparison**: Completed ([docs/HISTORICAL_COMPARISON.md](docs/HISTORICAL_COMPARISON.md) — TemporalResolver with calendar boundary checks, SnapshotStore with in-memory and MongoDB adapters, 5-minute sliding deduplication, contextual historical retrieval & turn mining, FactExtractor, ComparisonService with CONFIRMED_CHANGE/NO_DETECTED_CHANGE/UNABLE_TO_VERIFY verdicts, and `GET /api/conversations/:id/history` & `POST /api/conversations/:id/compare`).
 
 ---
 
@@ -182,6 +183,20 @@ curl -X POST http://localhost:3000/api/conversations/<CONVERSATION_ID>/chat \
   -d '{"message": "What is the starting price of the Tesla Model 3 in 2026?"}'
 ```
 
+#### Historical Information Retrieval (`GET /api/conversations/:id/history`)
+Retrieve structured historical snapshots and contextual messages matching query filters:
+```bash
+curl "http://localhost:3000/api/conversations/<CONVERSATION_ID>/history?entity=GitHub%20Copilot&limit=10"
+```
+
+#### Intelligent Comparison Engine (`POST /api/conversations/:id/compare`)
+Compare historical facts against current verified live web data:
+```bash
+curl -X POST http://localhost:3000/api/conversations/<CONVERSATION_ID>/compare \
+  -H "Content-Type: application/json" \
+  -d '{"subject": "GitHub Copilot", "attribute": "price", "baselineDate": "2022", "targetDate": "2026"}'
+```
+
 #### Delete Conversation (`DELETE /api/conversations/:id`)
 ```bash
 curl -X DELETE http://localhost:3000/api/conversations/<CONVERSATION_ID>
@@ -249,6 +264,7 @@ minimi-ai-chat-agent/
 ├── docs/                     # Architectural documentation
 │   ├── ARCHITECTURE.md       # High-level architecture, memory model, security
 │   ├── CONVERSATION_MEMORY.md# Memory subsystem, sliding window & storage adapter design
+│   ├── HISTORICAL_COMPARISON.md # [Phase 6] Historical retrieval & comparison architecture
 │   ├── IMPLEMENTATION_PLAN.md# Phased delivery roadmap and testing strategy
 │   ├── LLM_INTEGRATION.md    # LLM provider, prompt engineering & agent orchestration guide
 │   ├── SEARCH_INTEGRATION.md # Web search subsystem design & provider guide
@@ -289,6 +305,13 @@ minimi-ai-chat-agent/
 │   │   │   └── prompts/
 │   │   │       └── systemPrompt.ts # Centralized prompt with temporal grounding & anti-injection
 │   │   ├── healthService.ts  # Business logic for system health and uptime
+│   │   ├── history/          # [Phase 6] Historical Retrieval & Comparison Subsystem
+│   │   │   ├── types.ts      # HistoricalSnapshot, ComparisonResult, ComparisonVerdict
+│   │   │   ├── temporalResolver.ts # Calendar validation & relative temporal resolution
+│   │   │   ├── snapshotStore.ts # Pluggable snapshot storage (Memory / MongoDB) with deduplication
+│   │   │   ├── historicalRetrievalService.ts # Contextual snapshot & message claim retrieval
+│   │   │   ├── factExtractor.ts # Automatic factual observation extraction from turns
+│   │   │   └── comparisonService.ts # Delta computation, source attribution & verdict engine
 │   │   ├── llm/              # [Phase 5] Modular LLM Provider Subsystem
 │   │   │   ├── types.ts      # LLMProvider interface, options, and response contracts
 │   │   │   ├── llmProviderFactory.ts # Pluggable factory (OpenAI / Mock)
@@ -323,6 +346,7 @@ minimi-ai-chat-agent/
     ├── config.test.ts        # Environment variable parsing and validation tests
     ├── errorHandler.test.ts  # Centralized error middleware and payload tests
     ├── health.test.ts        # Health check endpoint integration tests
+    ├── history.test.ts       # [Phase 6] Historical retrieval, temporal resolution & comparison tests
     ├── llm.test.ts           # [Phase 5] Comprehensive agent orchestration & LLM tests
     ├── memory.test.ts        # Conversation memory lifecycle, sliding window & adapter tests
     ├── notFound.test.ts      # 404 handling integration tests
@@ -334,5 +358,5 @@ minimi-ai-chat-agent/
 
 ## 9. Next Steps (Upcoming Phases)
 
-- **Phase 6**: Server-Sent Events (SSE) Streaming & Interactive Chat API.
-- **Phase 7**: Evaluation Framework (EV-01 to EV-06) & Final Polish.
+- **Phase 7**: Server-Sent Events (SSE) Streaming & Interactive Chat API.
+- **Phase 8**: Evaluation Framework (EV-01 to EV-06) & Final Polish.
