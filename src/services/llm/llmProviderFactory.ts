@@ -25,7 +25,8 @@ export function createLLMProvider(providerName?: string): LLMProvider {
       return new MockLLMProvider();
 
     default:
-      logger.warn(`Unknown LLM provider "${selected}". Falling back to MockLLMProvider.`);
-      return new MockLLMProvider();
+      throw new Error(
+        `Unsupported LLM provider "${selected}". Valid options are "openai" or "mock". Configure LLM_PROVIDER in .env.`
+      );
   }
 }

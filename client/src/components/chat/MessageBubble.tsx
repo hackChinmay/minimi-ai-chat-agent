@@ -98,9 +98,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             )}
 
             {/* Latency badge */}
-            {!isUser && latencyMs && (
+            {!isUser && latencyMs !== undefined && latencyMs > 0 && (
               <span className="text-[10px] text-slate-400 hidden sm:inline">
-                {(latencyMs / 1000).toFixed(1)}s
+                {latencyMs < 1000 ? `${latencyMs}ms` : `${(latencyMs / 1000).toFixed(1)}s`}
               </span>
             )}
 

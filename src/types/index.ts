@@ -136,6 +136,8 @@ export interface AgentChatResult {
     tokens?: number;
     searchTimeMs?: number;
     searchError?: string;
+    rawSearchResults?: SearchResultItem[];
+    providerDiagnostics?: Record<string, unknown>;
   };
 }
 
