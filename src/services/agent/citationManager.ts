@@ -4,6 +4,28 @@ import { logger } from '../../utils/logger';
 
 export class CitationManager {
   /**
+   * Checks if a URL points to a reserved placeholder domain that should never be certified as a real citation.
+   */
+  public isPlaceholderDomain(urlStr: string): boolean {
+    try {
+      const parsed = new URL(urlStr);
+      const host = parsed.hostname.toLowerCase();
+      return (
+        host === 'example.com' ||
+        host.endsWith('.example.com') ||
+        host === 'example.org' ||
+        host.endsWith('.example.org') ||
+        host === 'example.net' ||
+        host.endsWith('.example.net') ||
+        host === 'placeholder.com' ||
+        host === 'test.com'
+      );
+    } catch {
+      return true;
+    }
+  }
+
+  /**
    * Parses citation markers in LLM content, validates them against actual search results,
    * strips hallucinated citation markers, and returns verified sources.
    */
@@ -40,6 +62,12 @@ export class CitationManager {
       const matchedSource = sourceByIndex.get(indexNum) || sourceById.get(`source-${indexNum}`);
 
       if (matchedSource) {
+        // Reject placeholder domains
+        if (this.isPlaceholderDomain(matchedSource.url)) {
+          logger.warn(`Stripping citation marker "${match}" for placeholder domain: ${matchedSource.url}`);
+          return '';
+        }
+
         // Valid citation
         citedSourcesMap.set(matchedSource.id, matchedSource);
         return `[source-${matchedSource.index}]`;

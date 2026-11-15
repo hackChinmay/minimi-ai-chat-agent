@@ -11,6 +11,10 @@ export class SearchService {
     this.provider = provider ?? createSearchProvider();
   }
 
+  public get providerName(): string {
+    return this.provider.name;
+  }
+
   /**
    * Sanitizes and validates the incoming search query.
    */

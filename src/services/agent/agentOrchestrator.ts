@@ -208,12 +208,17 @@ export class AgentOrchestrator {
       );
 
       const totalLatencyMs = Date.now() - startTime;
-      const finalSources =
-        attribution.citedSources.length > 0
-          ? attribution.citedSources
-          : searchUsed
-          ? searchResults
-          : [];
+
+      // Only validated sources actually cited in the LLM response are certified as finalSources.
+      // Raw search results are preserved separately in metadata.rawSearchResults for internal diagnostics.
+      const finalSources = attribution.citedSources;
+      const rawSearchResults = searchUsed ? searchResults : undefined;
+      const providerDiagnostics = {
+        llmProvider: this.llmProvider.name,
+        searchProvider: this.searchService.providerName,
+        rawSearchCount: searchResults.length,
+        citedCount: finalSources.length,
+      };
 
       // 11. Persist Assistant Response in Memory
       const assistantMetadata = {
@@ -223,6 +228,7 @@ export class AgentOrchestrator {
           title: s.title,
         })),
         sources: finalSources,
+        rawSearchResults,
         searchUsed,
         searchStatus,
         searchQueries,
@@ -230,6 +236,7 @@ export class AgentOrchestrator {
         category: decision.category,
         tokens: llmResponse.usage?.totalTokens,
         latencyMs: totalLatencyMs,
+        providerDiagnostics,
       };
 
       const assistantMsg = await this.conversationService.appendMessage(conversationId, {
@@ -267,8 +274,14 @@ export class AgentOrchestrator {
           tokens: llmResponse.usage?.totalTokens,
           searchTimeMs: searchTimeMs > 0 ? searchTimeMs : undefined,
           searchError,
+          rawSearchResults,
+          providerDiagnostics,
         },
       };
+    } catch (err) {
+      // If the turn failed, clear the recent request fingerprint so the user can immediately retry
+      this.recentRequests.delete(conversationId);
+      throw err;
     } finally {
       this.inFlightConversations.delete(conversationId);
     }

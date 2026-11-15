@@ -19,9 +19,25 @@ export class QueryRewriter {
 
     let cleaned = rawQuery.trim();
 
-    // 1. Strip conversational filler prefixes
+    // 1. Strip conversational filler prefixes and research directives
     cleaned = cleaned.replace(
       /^(can\s+you\s+(please\s+)?(tell\s+me|find|search\s+for|look\s+up|explain)|please\s+(find|search|tell\s+me)|i\s+want\s+to\s+know|what\s+about)\s+/i,
+      ''
+    );
+    cleaned = cleaned.replace(
+      /^(research\s+(the\s+)?(latest\s+developments\s+(in|of)|information\s+about|details\s+(on|about)|overview\s+of))\s+/i,
+      ''
+    );
+
+    // Strip procedural output instructions from the end of queries (e.g. "include verified sources...", "provide a recommendation for...")
+    cleaned = cleaned.replace(
+      /[.,;]?\s*\b(include\s+verified\s+sources|include\s+publication\s+dates|provide\s+a\s+(final\s+)?recommendation|and\s+a\s+final\s+recommendation|give\s+a\s+recommendation)[^.]*$/i,
+      ''
+    );
+
+    // Strip "based on features, pricing..." instructional clauses from middle of queries
+    cleaned = cleaned.replace(
+      /\bbased\s+on\s+(features|pricing|coding\s+capabilities|developer\s+productivity|specs|benchmarks|cost|details)[^.;]*/gi,
       ''
     );
 
@@ -80,36 +96,36 @@ export class QueryRewriter {
    * Extracts the primary topic or subject from recent conversation history.
    */
   private extractSubjectFromHistory(history: ConversationMessage[]): string | null {
-    // Inspect recent user and assistant messages in reverse order
+    // 1. First inspect previous user messages (reverse order) since user queries express intent
     for (let i = history.length - 1; i >= 0; i--) {
       const msg = history[i];
-      if (!msg) continue;
+      if (!msg || msg.role !== 'user') continue;
 
-      // If user turn, extract subject from common patterns
-      if (msg.role === 'user') {
-        const text = msg.content.trim();
+      const text = msg.content.trim();
 
-        // Pattern: "Tell me about X", "What is X", "How does X work", "Compare X and Y"
-        const aboutMatch = text.match(
-          /(?:tell\s+me\s+about|what\s+is|what's|how\s+about|info\s+on|details\s+on)\s+([A-Za-z0-9\s._-]{2,40})/i
-        );
-        if (aboutMatch && aboutMatch[1]) {
-          return this.cleanSubject(aboutMatch[1]);
-        }
-
-        // Pattern: simple proper nouns / product names (e.g. "Supabase", "Tesla Model 3", "Next.js")
-        const words = text.split(/\s+/);
-        if (words.length <= 4 && !/^(hi|hello|thanks|ok|help)\b/i.test(text)) {
-          return text.replace(/[?!.]+$/, '');
-        }
+      // Pattern: "Tell me about X", "What is X", "How does X work", "Compare X and Y"
+      const aboutMatch = text.match(
+        /(?:tell\s+me\s+about|what\s+is|what's|how\s+about|info\s+on|details\s+on)\s+([A-Za-z0-9\s._-]{2,40})/i
+      );
+      if (aboutMatch && aboutMatch[1]) {
+        return this.cleanSubject(aboutMatch[1]);
       }
 
-      // If assistant turn, look for bolded entities or subject in first sentence
-      if (msg.role === 'assistant') {
-        const boldMatch = msg.content.match(/\*\*([A-Za-z0-9\s._-]{2,30})\*\*/);
-        if (boldMatch && boldMatch[1]) {
-          return boldMatch[1].trim();
-        }
+      // Pattern: simple proper nouns / product names (e.g. "Supabase", "Tesla Model 3", "Next.js")
+      const words = text.split(/\s+/);
+      if (words.length <= 4 && !/^(hi|hello|thanks|ok|help)\b/i.test(text)) {
+        return text.replace(/[?!.]+$/, '');
+      }
+    }
+
+    // 2. Fall back to previous assistant messages if user messages did not yield a subject
+    for (let i = history.length - 1; i >= 0; i--) {
+      const msg = history[i];
+      if (!msg || msg.role !== 'assistant') continue;
+
+      const boldMatch = msg.content.match(/\*\*([A-Za-z0-9\s._-]{2,30})\*\*/);
+      if (boldMatch && boldMatch[1]) {
+        return boldMatch[1].trim();
       }
     }
 
