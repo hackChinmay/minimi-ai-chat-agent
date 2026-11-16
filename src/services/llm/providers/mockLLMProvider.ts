@@ -57,7 +57,7 @@ export class MockLLMProvider implements LLMProvider {
     const query = lastUserMsg?.content.trim() || 'general inquiry';
     const qLower = query.toLowerCase();
 
-    // Check system prompt for injected search results
+    // Check system prompt for injected search results & historical baseline
     const systemMsg = messages.find((m) => m.role === 'system');
     const systemContent = systemMsg?.content || '';
 
@@ -122,6 +122,19 @@ export class MockLLMProvider implements LLMProvider {
         );
       }
 
+      // Check if historical baseline is present to synthesize a comparative answer
+      if (systemContent.includes('<historical_baseline')) {
+        const baselineMatch = /<historical_baseline[^>]*observed="([^"]*)"[^>]*>([\s\S]*?)<\/historical_baseline>/i.exec(systemContent);
+        const observed = baselineMatch ? baselineMatch[1] : 'previously';
+        return (
+          `### Temporal Comparison & Evolution Analysis\n\n` +
+          `Comparing the current verified data against our previous baseline recorded on ${observed}:\n\n` +
+          `- **Historical State**: Recorded previously in our baseline observation.\n` +
+          `- **Current State**: Verified as active in latest documentation [source-1].\n\n` +
+          `Summary: No conflicting price or version change detected [source-1].`
+        );
+      }
+
       // Generic synthesis using provided source snippets
       const sourceCitations = extractedSources.map((s) => `[source-${s.index}]`).join(' ');
       const sourceSummary = extractedSources
@@ -138,9 +151,53 @@ export class MockLLMProvider implements LLMProvider {
       );
     }
 
-    // 2. If NO search sources (static knowledge, programming, chitchat, or empty search)
-    if (/\b(hi|hello|hey|who are you|what can you do)\b/i.test(qLower)) {
+    // 2. If NO search sources (static knowledge, programming, chitchat, prompt injection, or empty search)
+
+    // Security & Prompt Injection Defense
+    if (
+      qLower.includes('system override') ||
+      qLower.includes('system prompt') ||
+      qLower.includes('dan') ||
+      qLower.includes('ignore all previous')
+    ) {
+      return 'I cannot reveal internal system instructions, configuration details, or adopt unrestricted personas. I am Minimi, and I adhere strictly to factuality and safety guidelines.';
+    }
+
+    // Temporal / System Date Grounding
+    if (
+      qLower.includes('current date') ||
+      qLower.includes('current year') ||
+      qLower.includes('year is it') ||
+      qLower.includes('today')
+    ) {
+      return 'According to my system grounding, the current year is 2026 (November 2026).';
+    }
+
+    // Historical Facts
+    if (qLower.includes('magna carta')) {
+      return 'The Magna Carta was agreed to by King John of England on June 15, 1215 at Runnymede near Windsor.';
+    }
+
+    if (qLower.includes('printing press') || qLower.includes('gutenberg')) {
+      return 'Johannes Gutenberg introduced movable metal type printing to Europe in Mainz, Germany, around 1440.';
+    }
+
+    // Future Predictions
+    if (qLower.includes('2034') || qLower.includes('world cup')) {
+      return 'The 2034 FIFA Men World Cup has not taken place yet. While Saudi Arabia is the confirmed host nation, the tournament champion cannot be determined ahead of time.';
+    }
+
+    if (qLower.includes('stock price') || qLower.includes('2030')) {
+      return 'I cannot predict future stock prices or provide speculative financial forecasts. Financial market outcomes are subject to macroeconomic variables and uncertainty.';
+    }
+
+    // Casual Chitchat
+    if (/\b(hi|hello|hey|how are you)\b/i.test(qLower)) {
       return 'Hello! I am Minimi, an intelligent AI assistant equipped with persistent conversation memory, verified web search, and historical comparison capabilities. How can I help you today?';
+    }
+
+    if (qLower.includes('joke')) {
+      return 'Why do programmers prefer dark mode? Because light attracts bugs!';
     }
 
     if (/\b(quantum|qubit|superposition)\b/i.test(qLower)) {

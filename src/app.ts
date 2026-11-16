@@ -4,6 +4,7 @@ import cors from 'cors';
 import { env } from './config/env';
 import { requestIdMiddleware } from './middleware/requestId';
 import { requestLoggerMiddleware } from './middleware/requestLogger';
+import { rateLimitMiddleware } from './middleware/rateLimiter';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { errorHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
@@ -31,20 +32,23 @@ export function createApp(): Application {
   // 3. Request Correlation ID & Performance Timers
   app.use(requestIdMiddleware);
 
-  // 4. Body Parsers with Configurable Limits
+  // 4. Rate Limiting Protection
+  app.use(rateLimitMiddleware);
+
+  // 5. Body Parsers with Configurable Limits
   app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: true, limit: env.REQUEST_BODY_LIMIT }));
 
-  // 5. Request Logging
+  // 6. Request Logging
   app.use(requestLoggerMiddleware);
 
-  // 6. API Routes
+  // 7. API Routes
   app.use(env.API_PREFIX, apiRouter);
 
-  // 7. Not-Found Route Handler
+  // 8. Not-Found Route Handler
   app.use(notFoundHandler);
 
-  // 8. Centralized Error Handler
+  // 9. Centralized Error Handler
   app.use(errorHandler);
 
   return app;
