@@ -17,6 +17,82 @@ export interface LogEntry {
   meta?: unknown;
 }
 
+const SENSITIVE_KEY_REGEX = /^(api[_-]?key|authorization|bearer|password|secret|token|cookie|access[_-]?token|private[_-]?key|refresh[_-]?token)$/i;
+
+/**
+ * Redacts secrets from strings (e.g. Bearer tokens, OpenAI keys, Tavily keys).
+ */
+export function redactString(str: string): string {
+  let redacted = str;
+
+  // Bearer tokens
+  redacted = redacted.replace(/Bearer\s+[a-zA-Z0-9._~+/-]+=*/gi, 'Bearer [REDACTED]');
+
+  // OpenAI keys
+  redacted = redacted.replace(/sk-[a-zA-Z0-9_-]{16,}/g, (match) => {
+    return `${match.slice(0, 4)}...[REDACTED]`;
+  });
+
+  // Tavily keys
+  redacted = redacted.replace(/tvly-[a-zA-Z0-9_-]{16,}/g, (match) => {
+    return `${match.slice(0, 4)}...[REDACTED]`;
+  });
+
+  return redacted;
+}
+
+/**
+ * Recursively sanitizes any value, masking known sensitive keys and secret patterns.
+ */
+export function sanitizeMeta(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return redactString(value);
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'function' || typeof value === 'symbol') {
+    return '[Not Serializable]';
+  }
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redactString(value.message),
+      stack: env.NODE_ENV === 'production' ? undefined : (value.stack ? redactString(value.stack) : undefined),
+    };
+  }
+
+  if (typeof value === 'object') {
+    if (seen.has(value)) {
+      return '[Circular Reference]';
+    }
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      return value.map((item) => sanitizeMeta(item, seen));
+    }
+
+    const sanitizedObj: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      if (SENSITIVE_KEY_REGEX.test(key)) {
+        sanitizedObj[key] = '[REDACTED]';
+      } else {
+        sanitizedObj[key] = sanitizeMeta(val, seen);
+      }
+    }
+    return sanitizedObj;
+  }
+
+  return value;
+}
+
 class Logger {
   private currentLevel: LogLevel;
 
@@ -33,12 +109,15 @@ class Logger {
   }
 
   private formatMessage(level: LogLevel, message: string, meta?: unknown, requestId?: string): string {
+    const cleanMessage = redactString(message);
+    const cleanMeta = meta !== undefined ? sanitizeMeta(meta) : undefined;
+
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      message,
+      message: cleanMessage,
       ...(requestId ? { requestId } : {}),
-      ...(meta !== undefined ? { meta } : {}),
+      ...(cleanMeta !== undefined ? { meta: cleanMeta } : {}),
     };
 
     if (env.NODE_ENV === 'production') {
@@ -46,8 +125,8 @@ class Logger {
     }
 
     const reqIdTag = requestId ? ` [req:${requestId}]` : '';
-    const metaTag = meta !== undefined ? `\n${JSON.stringify(meta, null, 2)}` : '';
-    return `[${entry.timestamp}] [${level.toUpperCase()}]${reqIdTag}: ${message}${metaTag}`;
+    const metaTag = cleanMeta !== undefined ? `\n${JSON.stringify(cleanMeta, null, 2)}` : '';
+    return `[${entry.timestamp}] [${level.toUpperCase()}]${reqIdTag}: ${cleanMessage}${metaTag}`;
   }
 
   public debug(message: string, meta?: unknown, requestId?: string): void {

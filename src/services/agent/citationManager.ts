@@ -4,11 +4,16 @@ import { logger } from '../../utils/logger';
 
 export class CitationManager {
   /**
-   * Checks if a URL points to a reserved placeholder domain that should never be certified as a real citation.
+   * Checks if a URL points to an unsafe protocol or reserved/placeholder domain that should never be certified.
    */
   public isPlaceholderDomain(urlStr: string): boolean {
     try {
       const parsed = new URL(urlStr);
+      // Strictly enforce secure web protocols
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return true;
+      }
+
       const host = parsed.hostname.toLowerCase();
       return (
         host === 'example.com' ||
@@ -18,7 +23,13 @@ export class CitationManager {
         host === 'example.net' ||
         host.endsWith('.example.net') ||
         host === 'placeholder.com' ||
-        host === 'test.com'
+        host === 'test.com' ||
+        host === 'foo.bar' ||
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '0.0.0.0' ||
+        host.endsWith('.invalid') ||
+        host.endsWith('.local')
       );
     } catch {
       return true;

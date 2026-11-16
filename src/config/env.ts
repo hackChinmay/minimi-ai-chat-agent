@@ -17,6 +17,16 @@ export const envSchema = z.object({
   TAVILY_API_KEY: z.string().optional(),
   SEARCH_TIMEOUT_MS: z.coerce.number().int().min(500).max(30000).default(5000),
 
+  // Search Caching & Optimization
+  SEARCH_CACHE_ENABLED: z.coerce.boolean().default(true),
+  SEARCH_CACHE_TTL_MS: z.coerce.number().int().min(1000).max(86400000).default(300000), // 5 min
+  SEARCH_CACHE_MAX_ENTRIES: z.coerce.number().int().min(10).max(10000).default(500),
+
+  // Rate Limiting & Security
+  RATE_LIMIT_ENABLED: z.coerce.boolean().default(true),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).max(3600000).default(60000), // 1 min
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).max(10000).default(120),
+
   // Conversation Memory & Storage Configurations
   STORAGE_PROVIDER: z.enum(['inmemory', 'mongodb']).default('inmemory'),
   MONGODB_URI: z.string().optional(),

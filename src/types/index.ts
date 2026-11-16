@@ -40,6 +40,8 @@ export interface SearchMetadata {
   totalResults: number;
   searchTimeMs: number;
   provider: string;
+  cached?: boolean;
+  cachedAt?: string;
 }
 
 export interface SearchResponseData {
